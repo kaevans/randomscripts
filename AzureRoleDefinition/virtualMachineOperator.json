@@ -1,0 +1,24 @@
+{
+    "Name": "Virtual Machine Operator",
+    "Id": "131a9243-d702-44b2-8bac-930d92324cd8",
+    "IsCustom": true,
+    "Description": "Can monitor and restart virtual machines.",
+    "Actions": [
+        "Microsoft.Storage/*/read",
+        "Microsoft.Network/*/read",
+        "Microsoft.Compute/*/read",
+        "Microsoft.Compute/virtualMachines/start/action",
+        "Microsoft.Compute/virtualMachines/restart/action",
+        "Microsoft.Authorization/*/read",
+        "Microsoft.Resources/subscriptions/resourceGroups/read",
+        "Microsoft.Insights/alertRules/*",
+        "Microsoft.Insights/diagnosticSettings/*",
+        "Microsoft.Support/*"
+    ],
+    "NotActions": [],
+    "DataActions": [],
+    "NotDataActions": [],
+    "AssignableScopes": [
+        "/subscriptions/b697fa44-1b50-43bd-8b36-e93333d56d25"
+    ]
+}
