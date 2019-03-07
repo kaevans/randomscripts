@@ -1,7 +1,5 @@
 ﻿function Get-AzureRmCachedAccessToken([Microsoft.Azure.Commands.Profile.Models.PSAzureContext]$context)
-{
-  $ErrorActionPreference = 'Stop'
-  
+{   
   if(-not (Get-Module AzureRm.Profile)) {
     Import-Module AzureRm.Profile
   }  
@@ -12,7 +10,42 @@
   $token.AccessToken
 }
 
-$sourceResourceGroupName="Cloud-AADDS"
+function Process-ResponseStatus($response, $headers)
+{
+    if($response.StatusCode -eq 202)
+    {
+        #Get long-running result
+        Get-LongRunningResult $response.Headers["Location"] $headers
+    }   
+    else
+    {
+        if($response.StatusCode -eq 204)
+        {
+            #Success
+            Write-Host "Success"
+        }
+        else
+        {
+            #Failure
+            Write-Host $response.RawContent
+        }
+    } 
+}
+
+function Get-LongRunningResult($endpoint, $headers)
+{        
+    do
+    {
+        $result = Invoke-WebRequest $endpoint -Method Get -Headers $headers -ContentType "application/json" -Verbose
+        if($result.StatusCode -eq 202)
+        {
+            Start-Sleep $result.Headers["Retry-After"]               
+        }
+    }while($result.StatusCode -eq 202)
+    return $result
+}
+
+$sourceResourceGroupName="Chevron-FS"
 $targetResourceGroupName="Operations"
 
 $context = Get-AzureRmContext
@@ -20,12 +53,15 @@ $context = Get-AzureRmContext
 $subscriptionId = $context.Subscription
 $targetResourceGroupId="/subscriptions/$subscriptionId/resourceGroups/$targetResourceGroupName"
 
-$resourceIds = Get-AzureRmResource -ResourceGroupName $sourceResourceGroupName | Select -Property ResourceId
+#Get all top-level resources
+$resourceIds = Get-AzureRmResource -ResourceGroupName $sourceResourceGroupName | ?{$_.ParentResource -eq $null} | Select -Property ResourceId
+
 $request = ""
 foreach($resourceId in $resourceIds)
 {    
     $request += "`"" + $resourceId.ResourceId + "`","
 }
+
 $request = $request.Remove($request.Length -1, 1)
 
 $token=Get-AzureRmCachedAccessToken $context
@@ -36,4 +72,15 @@ $headers.Add("Authorization", "bearer $token")
 
 $endpoint="https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$sourceResourceGroupName/validateMoveResources?api-version=2018-05-01"
 
-Invoke-RestMethod $endpoint -Method Post -Headers $headers -Body $body -ContentType "application/json"
+$response = $null
+try
+{
+    $response = Invoke-WebRequest $endpoint -Method Post -Headers $headers -Body $body -ContentType "application/json" -Verbose
+    Process-ResponseStatus $response $headers
+}
+catch
+{
+    $_
+}
+
+
